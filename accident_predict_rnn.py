@@ -25,8 +25,9 @@ def convert_data(srcFile, dstFile, interal=2):
     dfp = open(dstFile, 'w')
     with open(srcFile, 'r') as fp:
         header = fp.readline()
-        header = header.replace("Time,", "")
+        # header = header.replace("Time,", "")
         header = header.replace("\r\n", "")
+        # header = header.replace("time,", "")
         header = header + ",weekend,workday,t0,t1,t2,t3\r\n"
         dfp.write(header)
 
@@ -62,7 +63,7 @@ def convert_data(srcFile, dstFile, interal=2):
             values[2] = ac_types[values[2]]
             line = ','.join(values[1:])
             line = line.replace("\r\n", "")
-            newLine = line + "," + strWeek + "," + strTime + "\r\n"
+            newLine = values[0]+line + "," + strWeek + "," + strTime + "\r\n"
             dfp.write(newLine)
             writeCount += 1
         fp.close()
@@ -88,20 +89,32 @@ class AccStatistics:
         ScoreAccidentTFrames = float(self.predict_acc_tframes) / self.total_acc_tframes
         ScoreNonAccidents = float(self.predict_no_acc_tframes) / self.total_no_acc_tframes
 
-        print('predict: %d %d %d' % (
-            self.predict_acc,
-            self.predict_acc_tframes,
-            self.predict_no_acc_tframes))
-        print("total  : %d %d %d" % (
-            self.total_acc,
-            self.total_acc_tframes,
-            self.total_no_acc_tframes))
+        description_vector = ['accident_num','accident_type','holiday','precipitation','visibility','wind','wind_direction','fog','rain','sun_rise','sun_set','weekend','workday','t0','t1','t2','t3']
+        cols_all= range(17)
+        dict_description = dict(zip(cols_all,description_vector))
+        cols_choose=config["cols"]
+        
+        print "The Configuration vector used:"
+        print "{"
+        for i in range(len(cols_choose)):
+            if cols_choose[i] in cols_all:
+                print dict_description[cols_choose[i]]
+        print "}"
 
+        print ('Total number of accidents: {%d}' % self.total_acc)
+        print ('Total number of time frames with accidents: {%d}' % self.total_acc_tframes)
+        print ('Total number of non accidents: {%d}' % self.total_no_acc_tframes)
+
+        print ('Predict:')
+        print ('Total number of accidents: {%d}' % self.predict_acc)
+        print ('Total number of time frames with accidents: {%d}' % self.predict_acc_tframes)
+        print ('Total number of non accidents: {%d}' % self.predict_no_acc_tframes)
+            
         print("ScoreAccidents:{%f}" % ScoreAccidents)
         print("ScoreNonAccidents:{%f}" % (ScoreNonAccidents))
         print("ScoreAccidents Time Frames:{%f}" % ScoreAccidentTFrames)
         print("Score1:{%f}" % ((ScoreAccidents + ScoreNonAccidents) / 2))
-        print("Score2:{%f}" % (float(self.predict_acc) / self.total_no_acc_tframes))
+        print("Score2:{%f}" % (float(self.predict_acc) / (self.total_no_acc_tframes - self.predict_no_acc_tframes)))
 
 
 class RecurrentNeuralNetwork:
@@ -141,7 +154,7 @@ class RecurrentNeuralNetwork:
         self.trainer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.loss)
 
         initer = tf.global_variables_initializer()
-        writer = tf.train.SummaryWriter("./graph-rnn", self.session.graph)
+        writer = tf.train.SummaryWriter("/Users/zzf/Desktop/test/rnn/graph-rnn", self.session.graph)
 
         tf.scalar_summary("loss", self.loss)
         merged_summary = tf.merge_all_summaries()
@@ -159,7 +172,8 @@ class RecurrentNeuralNetwork:
                 writer.add_summary(summary, idx + epoch * total_seq)
 
     def predict(self, test_x, test_y, batch_n):
-        residual = 0.2
+        residual_nonaccident = 0.02
+        residual_accident=0.2
         seq_n = len(test_x)
         input_n = len(test_x[0])
         statistics = AccStatistics()
@@ -167,26 +181,35 @@ class RecurrentNeuralNetwork:
         acc_predict_cnt, acc_cnt = 0, 0
         no_acc_predict_cnt, no_acc_cnt = 0, 0
 
+        fp_act_pre = open("/Users/zzf/Desktop/test/rnn/data/test_predict.csv",'w')
+       
+        header = "actual value, prediction \r\n"
+        fp_act_pre.write(header)
+
         for idx in range(batch_n, seq_n - batch_n - 1):
             input_x = test_x[idx:idx + batch_n]
             label_y = test_y[idx]
             predict_y = self.session.run(self.prediction, feed_dict={self.inputs: input_x})
+            
+            act_pre_line=str(label_y) + "," + str(predict_y) + "\r\n"
+            fp_act_pre.write(act_pre_line)
 
             if int(label_y) == 0:
                 statistics.total_no_acc_tframes += 1
 
-                if abs(label_y - predict_y) < residual:
+                if abs(label_y - predict_y) < residual_nonaccident :
                     no_acc_predict_cnt += 1
                     statistics.predict_no_acc_tframes += 1
             else:
                 statistics.total_acc += int(label_y)
                 statistics.total_acc_tframes += 1
 
-                if abs(label_y - predict_y) < residual:
+                if abs(label_y - predict_y) < residual_accident:
                     statistics.predict_acc_tframes += 1
-                    statistics.predict_acc += int(label_y + residual)
+                    statistics.predict_acc += round(predict_y)
 
         statistics.print_scores()
+
 
     def test(self, test_x, test_y, batch_n, epochs):
         self.predict(test_x, test_y, batch_n=batch_n)
@@ -237,18 +260,18 @@ def data_import(file, delimiter=',', cols=(), normalize_cols=()):
 
 
 if __name__ == "__main__":
-    if not os.path.exists("/Users/zzf/Desktop/test/rnn/data/4hours2.csv"):
-        convert_data("/Users/zzf/Desktop/test/rnn/data/4hours.csv", "/Users/zzf/Desktop/test/rnn/data/4hours2.csv")
-    if not os.path.exists("/Users/zzf/Desktop/test/rnn/data/2hours2.csv"):
-        convert_data("/Users/zzf/Desktop/test/rnn/data/2hours.csv", "/Users/zzf/Desktop/test/rnn/data/2hours2.csv")
+    if not os.path.exists("/Users/zzf/Desktop/test/rnn/data/4hours22.csv"):
+        convert_data("/Users/zzf/Desktop/test/rnn/data/4hours.csv", "/Users/zzf/Desktop/test/rnn/data/4hours22.csv")
+    if not os.path.exists("/Users/zzf/Desktop/test/rnn/data/2hours22.csv"):
+        convert_data("/Users/zzf/Desktop/test/rnn/data/2hours.csv", "/Users/zzf/Desktop/test/rnn/data/2hours22.csv")
 
     dataset = {
-        "train_4hours": "/Users/zzf/Desktop/test/rnn/data/4hours-training.csv",
-        "test_4hours": "/Users/zzf/Desktop/test/rnn/data/4hours-test.csv",
-        "train_2hours": "/Users/zzf/Desktop/test/rnn/data/2hours-training.csv",
-        "test_2hours": "/Users/zzf/Desktop/test/rnn/data/2hours-test.csv",
-        "4hours": "/Users/zzf/Desktop/test/rnn/data/4hours2.csv",
-        "2hours": "/Users/zzf/Desktop/test/rnn/data/2hours2.csv",
+        # "train_4hours": "/Users/zzf/Desktop/test/rnn/data/4hours-training.csv",
+        # "test_4hours": "/Users/zzf/Desktop/test/rnn/data/4hours-test.csv",
+        # "train_2hours": "/Users/zzf/Desktop/test/rnn/data/2hours-training.csv",
+        # "test_2hours": "/Users/zzf/Desktop/test/rnn/data/2hours-test.csv",
+        "4hours": "/Users/zzf/Desktop/test/rnn/data/4hours22.csv",
+        "2hours": "/Users/zzf/Desktop/test/rnn/data/2hours22.csv",
     }
     config = {
         "batch_n": 1,
@@ -256,7 +279,7 @@ if __name__ == "__main__":
         "train_start": 0,
         "train_end": 4000,
         "cols": (1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
-        "normalize_cols": (4, 5, 6),
+        "normalize_cols": (3, 4, 5, 6),
     }
 
     data_4hours_x, data_4hours_y = data_import(dataset["4hours"],
@@ -269,6 +292,7 @@ if __name__ == "__main__":
     test_x = data_2hours_x
     test_y = data_2hours_y
 
+ 
     nn = RecurrentNeuralNetwork()
     nn.train(train_x, train_y, batch_n=config["batch_n"], epochs=config["epochs"])
     nn.test(test_x, test_y, batch_n=config["batch_n"], epochs=config["epochs"])
