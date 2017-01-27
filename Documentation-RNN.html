@@ -1,0 +1,182 @@
+<!DOCTYPE html><html><head><title>Documentation</title><meta charset='utf-8'><link href='https://d31qtcb7c58z3n.cloudfront.net/res-min/themes/marxico.css' rel='stylesheet'><style></style></head><body><div id='preview-contents' class='note-content'>
+                        
+                    
+
+
+
+<h1 id="documentation">Documentation</h1>
+
+<p>This documentation is used for Accident_predict_rnn.py, of which the tensorflow is imported to run RNN algorithm in order to predict accidents. For more information please see <a href="https://github.com/zzf-technion/RNN_accident_forecast" target="_blank">this</a>.</p>
+
+<p><strong>Environmental requirements</strong> : The following platform is currently where I run my code</p>
+
+<ul><li><strong>Python</strong> - The used Python version is Python 2.7.12.</li>
+<li><strong>Tensorflow</strong> -  Version r.12</li>
+<li><strong>OS</strong> - Mac OS X EI Captitan</li>
+</ul>
+
+<hr>
+
+<div><div class="toc"><div class="toc">
+<ul>
+<li><a href="#documentation">Documentation</a><ul>
+<li><a href="#functions">Functions</a><ul>
+<li><a href="#convertdata">convert_data</a></li>
+<li><a href="#normalize">normalize</a></li>
+<li><a href="#dataimport">data_import</a></li>
+<li><a href="#train">train</a></li>
+<li><a href="#predict">predict</a></li>
+<li><a href="#printscores">print_scores</a></li>
+</ul>
+</li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#feedback-bug-report">Feedback &amp; Bug Report</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+
+<h2 id="functions">Functions</h2>
+
+<blockquote>
+  <p>In this section, mainly explain the functions I defined in the source code file.</p>
+</blockquote>
+
+
+
+<h3 id="convertdata">convert_data</h3>
+
+<p>By this function, we can convert the original given data to required format we use in the RNN model. Some data we human beings can understand but the computer does not know what it means. It is necessary to convert the original data as a way the software can understand</p>
+
+<p>There are three parts:</p>
+
+<ul><li>Convert the accident type</li>
+</ul>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs xquery">ac_types = {<br>        <span class="hljs-string">"NONE"</span>: <span class="hljs-string">"0"</span>,<br>        <span class="hljs-string">"A1"</span>: <span class="hljs-string">"1"</span>,<br>        <span class="hljs-string">"A2"</span>: <span class="hljs-string">"2"</span>,<br>        <span class="hljs-string">"A3"</span>: <span class="hljs-string">"3"</span> }<br></code></pre>
+
+<ul><li>Convert the weekend  <br>
+Express the date  to  a boolean value. From Monday to Friday, it is workday. Saturday and Sunday we treat as weekend.</li>
+</ul>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs stylus"><span class="hljs-keyword">if</span> ac_time.<span class="hljs-function"><span class="hljs-title">weekday</span><span class="hljs-params">()</span></span> &gt;= <span class="hljs-number">5</span>:<br>                strWeek = <span class="hljs-string">"1,0"</span><br>            <span class="hljs-keyword">else</span>:<br>                strWeek = <span class="hljs-string">"0,1"</span><br></code></pre>
+
+<ul><li>Convert time <br>
+We divide 24 hours a day into four different stages. Then use boolean value to express the specific time stage.</li>
+</ul>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs stylus"><span class="hljs-keyword">if</span> ac_time<span class="hljs-class">.hour</span> &lt;= <span class="hljs-number">6</span> or ac_time<span class="hljs-class">.hour</span> &gt;= <span class="hljs-number">22</span>:<br>                strTime = <span class="hljs-string">"1,0,0,0"</span><br>            elif ac_time<span class="hljs-class">.hour</span> &gt;= <span class="hljs-number">6</span> and ac_time<span class="hljs-class">.hour</span> &lt;= <span class="hljs-number">10</span>:<br>                strTime = <span class="hljs-string">"0,1,0,0"</span><br>            elif ac_time<span class="hljs-class">.hour</span> &gt;= <span class="hljs-number">10</span> and ac_time<span class="hljs-class">.hour</span> &lt;= <span class="hljs-number">16</span>:<br>                strTime = <span class="hljs-string">"0,0,1,0"</span><br>            elif ac_time<span class="hljs-class">.hour</span> &gt;= <span class="hljs-number">16</span> and ac_time<span class="hljs-class">.hour</span> &lt;= <span class="hljs-number">22</span>:<br>                strTime = <span class="hljs-string">"0,0,0,1"</span><br></code></pre>
+
+<p>After we convert all these data, we write these data to a new file. As shown in the function </p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs ruby"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">convert_data</span><span class="hljs-params">(srcFile, dstFile)</span></span><br></code></pre>
+
+<p><em>srcFile</em>  is the original source file , <em>dstFile</em> is the new file.</p>
+
+
+
+<h3 id="normalize">normalize</h3>
+
+<p>Some original data are not good for use because of their different scale. This function will normalize the data between 0 and 1. </p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs python"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">normalize</span><span class="hljs-params">(x)</span>:</span><br>    <span class="hljs-keyword">return</span> (x - min(x)) / (max(x) - min(x))<br></code></pre>
+
+
+
+<h3 id="dataimport">data_import</h3>
+
+<p>When we finishing convert the data and normalize data, we will import the data preparing for the RNN model.</p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs python"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">data_import</span><span class="hljs-params">(file, delimiter=<span class="hljs-string">','</span>, cols=<span class="hljs-params">()</span>, normalize_cols=<span class="hljs-params">()</span>)</span>:</span><br></code></pre>
+
+<p>Argument <em>file</em> is the targeted data file we used in the RNN model, <em>cols</em> is the columns we choose  from the targeted file as input for RNN model. <em>normalize_cols</em> is the columns to be normalized.</p>
+
+
+
+<h3 id="train">train</h3>
+
+<p>This function is mainly used for training the data and getting the optimal parameters, which is prepared for the test in the next step.</p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs cpp"><span class="hljs-function">def <span class="hljs-title">train</span><span class="hljs-params">(train_x, train_y, learning_rate=<span class="hljs-number">0.02</span>, epochs=<span class="hljs-number">1</span>, batch_n=<span class="hljs-number">1</span>, input_n=<span class="hljs-number">1</span>, hidden_n=<span class="hljs-number">4</span>)</span></span><br></code></pre>
+
+<ul><li><em>train_x</em> is the input training data set</li>
+<li><em>train_y</em> is the desired output in the training data set</li>
+<li><em>learning_rate</em> is the learning rate in the BPTT algorithm , default value =0.02</li>
+<li><em>epochs</em> is epoch size, default value = 1</li>
+<li><em>batch_n</em> is batch size, default value = 1</li>
+<li><em>input_n</em> is the input vector dimension, default value = 1.</li>
+<li><em>hidden_n</em> is the number of neurons in the hidden layer, default value = 4</li>
+</ul>
+
+
+
+<h3 id="predict">predict</h3>
+
+<p>After training the data, we have the optimal coefficients for the RNN model, then apply this model to predict accident by using test data set.</p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs ruby"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">predict</span><span class="hljs-params">(test_x, test_y, batch_n)</span></span><br></code></pre>
+
+<ul><li><em>test_x</em> is the input for test.</li>
+<li><em>test_y</em> is the actual output in the test data, in order to compare with prediction of the model.</li>
+<li><em>batch_n</em> is the batch size.</li>
+</ul>
+
+
+
+<h3 id="printscores">print_scores</h3>
+
+<p>This function is used to calculate the objective scores. Then print the result as required in a easy way.</p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs stylus"> def <span class="hljs-function"><span class="hljs-title">print_scores</span><span class="hljs-params">()</span></span>:<br>        ScoreAccidents = <span class="hljs-function"><span class="hljs-title">float</span><span class="hljs-params">(self.predict_acc)</span></span> / self<span class="hljs-class">.total_acc</span><br>        ScoreAccidentTFrames = <span class="hljs-function"><span class="hljs-title">float</span><span class="hljs-params">(self.predict_acc_tframes)</span></span> / self<span class="hljs-class">.total_acc_tframes</span><br>        ScoreNonAccidents = <span class="hljs-function"><span class="hljs-title">float</span><span class="hljs-params">(self.predict_no_acc_tframes)</span></span> / self<span class="hljs-class">.total_no_acc_tframes</span><br><br>        <span class="hljs-function"><span class="hljs-title">print</span><span class="hljs-params">(<span class="hljs-string">"ScoreAccidents:{%f}"</span> % ScoreAccidents)</span></span><br>        <span class="hljs-function"><span class="hljs-title">print</span><span class="hljs-params">(<span class="hljs-string">"ScoreNonAccidents:{%f}"</span> % (ScoreNonAccidents)</span></span>)<br>        <span class="hljs-function"><span class="hljs-title">print</span><span class="hljs-params">(<span class="hljs-string">"ScoreAccidents Time Frames:{%f}"</span> % ScoreAccidentTFrames)</span></span><br>        <span class="hljs-function"><span class="hljs-title">print</span><span class="hljs-params">(<span class="hljs-string">"Score1:{%f}"</span> % ((ScoreAccidents + ScoreNonAccidents)</span></span> / <span class="hljs-number">2</span>))<br>        <span class="hljs-function"><span class="hljs-title">print</span><span class="hljs-params">(<span class="hljs-string">"Score2:{%f}"</span> % (float(self.predict_acc)</span></span> / self.total_no_acc_tframes))<br></code></pre>
+
+
+
+<h2 id="configuration">Configuration</h2>
+
+<p>There is a dictionary used for configuration. This is configuration is necessary to train your model.</p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs cpp">config = {<br>        <span class="hljs-string">"batch_n"</span>: <span class="hljs-number">1</span>,<br>        <span class="hljs-string">"epochs"</span>: <span class="hljs-number">4</span>,<br>        <span class="hljs-string">"train_start"</span>: <span class="hljs-number">0</span>,<br>        <span class="hljs-string">"train_end"</span>: <span class="hljs-number">4000</span>,<br>        <span class="hljs-string">"cols"</span>: (<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">7</span>, <span class="hljs-number">8</span>, <span class="hljs-number">9</span>, <span class="hljs-number">10</span>, <span class="hljs-number">11</span>, <span class="hljs-number">12</span>, <span class="hljs-number">13</span>, <span class="hljs-number">14</span>, <span class="hljs-number">15</span>, <span class="hljs-number">16</span>),<br>        <span class="hljs-string">"normalize_cols"</span>: (<span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>),<br>    }<br></code></pre>
+
+<ul><li><em>batch_n</em> is the batch size </li>
+<li><em>epochs</em> is the epoch size</li>
+<li><em>train_start</em> is the start line in the training data set</li>
+<li><em>train_end</em> is the end line in the training data set</li>
+<li><em>cols</em> is the columns you choose for training model in the data set</li>
+<li><em>normalize_cols</em> is the columns you choose to normalize in the data set</li>
+</ul>
+
+
+
+<h2 id="feedback-bug-report">Feedback &amp; Bug Report</h2>
+
+<p>Jack Zheng: <em>zzhengfei01@gmail.com</em></p>
+
+
+
+<hr>
+
+<p>Thank you for reading this documentation. </p></div></body></html>
